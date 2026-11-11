@@ -5,7 +5,7 @@ from typing import Callable, Iterable, TYPE_CHECKING
 if TYPE_CHECKING:
     from torch import Tensor
 
-from .base import MmprojModel, ModelBase, TextModel, gguf
+from .base import MmprojModel, ModelBase, TextModel, gguf, logger
 
 
 # Nemotron 3.5 Parse: C-RADIOv4-SO400M encoder + neck, its output is a causal prefix of a 10-layer mBART-style decoder (no cross-attention)
@@ -32,6 +32,18 @@ class NemotronParseModel(TextModel):
         reverse_vocab = {id_: tok for tok, id_ in tokenizer.vocab.items()}
         added = tokenizer.added_tokens_decoder
 
+        # normalized added tokens print in their NFKC form in HF (e.g. U+0E33 -> U+0E4D U+0E32), keep that unless the text is taken
+        rendered = {i: tokenizer.decode([i]) for i, a in added.items() if not a.special and a.normalized}
+        taken = set(reverse_vocab.values())
+        n_kept = 0
+        for i, text in rendered.items():
+            if text != reverse_vocab[i] and text in taken:
+                rendered[i] = reverse_vocab[i]
+                n_kept += 1
+            taken.add(rendered[i])
+        if n_kept:
+            logger.info(f"{n_kept} normalized added tokens keep their raw text, their NFKC form is another token")
+
         tokens: list[str] = []
         toktypes: list[int] = []
         for i in range(vocab_size):
@@ -39,7 +51,7 @@ class NemotronParseModel(TextModel):
                 tokens.append(f"[PAD{i}]")
                 toktypes.append(gguf.TokenType.UNUSED)
             elif i in added:
-                tokens.append(reverse_vocab[i])
+                tokens.append(rendered.get(i, reverse_vocab[i]))
                 # box, class and chart tokens are part of the output text, so only the special ones are CONTROL
                 toktypes.append(gguf.TokenType.CONTROL if added[i].special else gguf.TokenType.USER_DEFINED)
             else:
