@@ -851,6 +851,10 @@ std::unique_ptr<mtmd_graph> mtmd_get_graph_builder(mtmd_subcontext * ctx, const 
             {
                 builder = std::make_unique<mtmd_graph_nemotron_v2_vl>(ctx, img);
             } break;
+        case PROJECTOR_TYPE_NEMOTRON_PARSE:
+            {
+                builder = std::make_unique<mtmd_graph_nemotron_parse>(ctx, img);
+            } break;
         case PROJECTOR_TYPE_NEMOTRON_OMNI:
             {
                 builder = std::make_unique<mtmd_graph_nemotron_omni>(ctx, img);

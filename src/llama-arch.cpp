@@ -149,6 +149,7 @@ static const std::map<llm_arch, const char *> LLM_ARCH_NAMES = {
     { LLM_ARCH_MINIMAX_01,       "minimax-01"       },
     { LLM_ARCH_HRM_TEXT,         "hrm_text"         },
     { LLM_ARCH_LIMITE,           "limite"           },
+    { LLM_ARCH_NEMOTRON_PARSE,   "nemotron-parse"   },
     { LLM_ARCH_MINIMAX_M2,       "minimax-m2"       },
     { LLM_ARCH_MINIMAX_M3,       "minimax-m3"       },
     { LLM_ARCH_COGVLM,           "cogvlm"           },

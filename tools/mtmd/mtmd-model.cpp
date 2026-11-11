@@ -365,6 +365,13 @@ struct mtmd_model_loader {
                     {
                         get_u32(KEY_PROJ_SCALE_FACTOR, hparams.n_merge, false);
                     } break;
+                case PROJECTOR_TYPE_NEMOTRON_PARSE:
+                    {
+                        hparams.ffn_op = FFN_GELU_ERF;
+                        log_ffn_op = "gelu_erf";
+                        // pages fit in 1664 x 2048; 1856^2 covers the largest patch count (104 x 128)
+                        hparams.warmup_image_size = 1856;
+                    } break;
                 case PROJECTOR_TYPE_NEMOTRON_OMNI:
                     {
                         hparams.ffn_op = FFN_GELU_ERF;
@@ -2937,6 +2944,21 @@ struct mtmd_model_loader {
                     model.mm_3_w = get_tensor(mtmd_format(TN_MVLM_PROJ_MLP, 3, "weight"));
                     model.mm_3_b = get_tensor(mtmd_format(TN_MVLM_PROJ_MLP, 3, "bias"));
                 } break;
+            case PROJECTOR_TYPE_NEMOTRON_PARSE:
+                {
+                    // neck: conv1 (1x1), layer_norm1, conv2 (1x4 / 4), layer_norm2; summary: sum_proj, layer_norm3
+                    model.mm_0_w = get_tensor(mtmd_format(TN_LLAVA_PROJ, 0, "weight"));
+                    model.mm_0_b = get_tensor(mtmd_format(TN_LLAVA_PROJ, 0, "bias"));
+                    model.mm_1_w = get_tensor(mtmd_format(TN_LLAVA_PROJ, 1, "weight"));
+                    model.mm_1_b = get_tensor(mtmd_format(TN_LLAVA_PROJ, 1, "bias"));
+                    model.mm_2_w = get_tensor(mtmd_format(TN_LLAVA_PROJ, 2, "weight"));
+                    model.mm_3_w = get_tensor(mtmd_format(TN_LLAVA_PROJ, 3, "weight"));
+                    model.mm_3_b = get_tensor(mtmd_format(TN_LLAVA_PROJ, 3, "bias"));
+                    model.mm_4_w = get_tensor(mtmd_format(TN_LLAVA_PROJ, 4, "weight"));
+                    model.mm_4_b = get_tensor(mtmd_format(TN_LLAVA_PROJ, 4, "bias"));
+                    model.mm_5_w = get_tensor(mtmd_format(TN_LLAVA_PROJ, 5, "weight"));
+                    model.mm_5_b = get_tensor(mtmd_format(TN_LLAVA_PROJ, 5, "bias"));
+                } break;
             case PROJECTOR_TYPE_NEMOTRON_V2_VL:
             case PROJECTOR_TYPE_NEMOTRON_OMNI:
                 {
@@ -3969,6 +3991,11 @@ int mtmd_model::n_output_tokens(const mtmd_image_f32 * img) const {
                 const int n_llm_h = MTMD_ALIGN(img->ny(), out_patch_size) / out_patch_size;
                 n_patches = dsv41_n_block_tokens(n_llm_w, n_llm_h);
             } break;
+        case PROJECTOR_TYPE_NEMOTRON_PARSE:
+            {
+                // 4 patches of a row are merged, plus one summary token
+                n_patches = (img->ny() / params.patch_size) * (img->nx() / params.patch_size / 4) + 1;
+            } break;
         case PROJECTOR_TYPE_PADDLEOCR:
         case PROJECTOR_TYPE_DOTS_OCR:
         case PROJECTOR_TYPE_DOTS3NOTE_V:
@@ -4272,6 +4299,8 @@ int mtmd_model::n_mmproj_embd() const {
             return mm_2_w->ne[1];
         case PROJECTOR_TYPE_MERALION:
             return mm_3_w->ne[1]; // out_proj output dim
+        case PROJECTOR_TYPE_NEMOTRON_PARSE:
+            return mm_4_w->ne[1];
         case PROJECTOR_TYPE_INTERNVL:
         case PROJECTOR_TYPE_NEMOTRON_V2_VL:
         case PROJECTOR_TYPE_NEMOTRON_OMNI:

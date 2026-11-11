@@ -404,6 +404,16 @@ struct llm_tokenizer_bpe : llm_tokenizer {
                     "(?:'[sS]|'[tT]|'[rR][eE]|'[vV][eE]|'[mM]|'[lL][lL]|'[dD])|[^\\r\\n\\p{L}\\p{N}]?[\\p{L}\\p{M}]+|\\p{N}| ?[^\\s\\p{L}\\p{M}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+",
                 };
                 break;
+            case LLAMA_VOCAB_PRE_TYPE_NEMOTRON_PARSE:
+                // galactica-style: single digits, runs of one punctuation char, newlines, then the GPT-2 split
+                regex_exprs = {
+                    "\\p{N}",
+                    // HF: [\(\)\[\]\{\}]|([!"#$%&'*+,\-./:;<=>?\\^_`|~])\1* (std::regex here has no back references)
+                    "[\\(\\)\\[\\]\\{\\}]|!+|\"+|#+|\\$+|%+|&+|'+|\\*+|\\++|,+|\\-+|\\.+|/+|:+|;+|<+|=+|>+|\\?+|\\\\+|\\^+|_+|`+|\\|+|~+",
+                    "\n",
+                    "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)",
+                };
+                break;
             case LLAMA_VOCAB_PRE_TYPE_PORO:
             case LLAMA_VOCAB_PRE_TYPE_BLOOM:
             case LLAMA_VOCAB_PRE_TYPE_GPT3_FINNISH:
@@ -2642,6 +2652,10 @@ void llama_vocab::impl::load(llama_model_loader & ml, const LLM_KV & kv) {
             } else if (
                 tokenizer_pre == "bloom") {
                 pre_type = LLAMA_VOCAB_PRE_TYPE_BLOOM;
+            } else if (
+                tokenizer_pre == "nemotron-parse") {
+                pre_type = LLAMA_VOCAB_PRE_TYPE_NEMOTRON_PARSE;
+                clean_spaces = false;
             } else if (
                 tokenizer_pre == "gpt3-finnish") {
                 pre_type = LLAMA_VOCAB_PRE_TYPE_GPT3_FINNISH;

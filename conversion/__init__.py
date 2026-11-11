@@ -17,6 +17,7 @@ __all__ = [
 
 
 TEXT_MODEL_MAP: dict[str, str] = {
+    "RadioMBartPrefixForCausalLM": "nemotron_parse",
     "NEOChatModel": "sensenova_u1",
     "AfmoeForCausalLM": "afmoe",
     "LagunaForCausalLM": "laguna",
@@ -380,6 +381,7 @@ MMPROJ_MODEL_MAP: dict[str, str] = {
     "Lfm3OmniForConditionalGeneration": "lfm3",
     "Lfm3VlForConditionalGeneration": "lfm3",
     "LightOnOCRForConditionalGeneration": "lighton_ocr",
+    "RadioMBartPrefixForCausalLM": "nemotron_parse",
     "Llama4ForConditionalGeneration": "llama4",
     "LlavaForConditionalGeneration": "llava",
     "LlavaOnevision2ForConditionalGeneration": "magevl",

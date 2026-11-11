@@ -127,6 +127,12 @@ private:
 };
 
 // downscale or upscale the input image to fixed size
+// Nemotron Parse: shrink into 1664 x 2048 (never enlarge), pad white at the right and bottom to a 64 x 16 grid
+struct mtmd_image_preprocessor_nemotron_parse : mtmd_image_preprocessor {
+    mtmd_image_preprocessor_nemotron_parse(const mtmd_model * model) : mtmd_image_preprocessor(model) {}
+    mtmd_image_preproc_out preprocess(const mtmd_image_u8 & img) const override;
+};
+
 struct mtmd_image_preprocessor_fixed_size : mtmd_image_preprocessor {
     mtmd_image_preprocessor_fixed_size(const mtmd_model * model) : mtmd_image_preprocessor(model) {}
     mtmd_image_preproc_out preprocess(const mtmd_image_u8 & img) const override;

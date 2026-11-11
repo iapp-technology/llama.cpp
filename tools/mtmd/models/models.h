@@ -140,6 +140,14 @@ struct mtmd_graph_nemotron_v2_vl : mtmd_graph {
     ggml_cgraph * build() override;
 };
 
+struct mtmd_graph_nemotron_parse : mtmd_graph {
+    mtmd_graph_nemotron_parse(mtmd_subcontext * ctx, const mtmd_image_f32 & img) : mtmd_graph(ctx, img) {}
+    ggml_cgraph * build() override;
+
+    // weights [n_out, n_src] that map the learned n_src position grid to n_out patches along one axis
+    static std::vector<float> pos_weights(int n_out, int content_px, int patch_size, int n_src, bool pool);
+};
+
 struct mtmd_graph_nemotron_omni : mtmd_graph {
     mtmd_graph_nemotron_omni(mtmd_subcontext * ctx, const mtmd_image_f32 & img) : mtmd_graph(ctx, img) {}
     ggml_cgraph * build() override;

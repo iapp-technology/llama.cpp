@@ -789,6 +789,44 @@ mtmd_image_preproc_out mtmd_image_preprocessor_fixed_size::preprocess(const mtmd
 }
 
 //
+// mtmd_image_preprocessor_nemotron_parse
+//
+
+mtmd_image_preproc_out mtmd_image_preprocessor_nemotron_parse::preprocess(const mtmd_image_u8 & img) const {
+    // LongestMaxSizeHW from the reference processor: height first, then width, truncating
+    const int max_h = 2048;
+    const int max_w = 1664;
+    const auto size = img.get_size();
+    const double aspect = (double) size.width / size.height;
+    int new_h = size.height;
+    int new_w = size.width;
+    if (new_h > max_h) {
+        new_h = max_h;
+        new_w = (int) (new_h * aspect);
+    }
+    if (new_w > max_w) {
+        new_w = max_w;
+        new_h = (int) (new_w / aspect);
+    }
+
+    mtmd_image_u8 resized;
+    img_tool::resize(img, resized, {new_w, new_h}, RESIZE_ALGO_BILINEAR, PAD_NONE);
+
+    // white padding at the right and bottom; width to a multiple of 64 for the 1x4 neck merge
+    mtmd_image_u8 padded;
+    padded.set_size({MTMD_ALIGN(new_w, 64), MTMD_ALIGN(new_h, 16)}, img.is_placeholder());
+    img_tool::fill(padded, {255, 255, 255});
+    img_tool::composite(padded, resized, 0, 0);
+
+    mtmd_image_preproc_out output;
+    output.append(hparams, padded, true);
+    // the position embeddings are normalized to the content size
+    output.entries.back().anyres.orig_nx = new_w;
+    output.entries.back().anyres.orig_ny = new_h;
+    return output;
+}
+
+//
 // mtmd_image_preprocessor_dyn_size
 //
 

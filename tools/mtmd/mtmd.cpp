@@ -1077,6 +1077,11 @@ struct mtmd_context {
                 {
                     image_preproc = std::make_unique<mtmd_image_preprocessor_fixed_size>(models.v.get());
                 } break;
+            case PROJECTOR_TYPE_NEMOTRON_PARSE:
+                {
+                    // the image embeddings are the whole prefix, no begin/end tokens
+                    image_preproc = std::make_unique<mtmd_image_preprocessor_nemotron_parse>(models.v.get());
+                } break;
             case PROJECTOR_TYPE_NEMOTRON_OMNI:
                 {
                     img_beg = "<img>";

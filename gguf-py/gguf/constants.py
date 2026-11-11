@@ -761,6 +761,7 @@ class MODEL_ARCH(IntEnum):
     K2HORIZON        = auto()
     KOLIBRI1         = auto()
     LIMITE           = auto()
+    NEMOTRON_PARSE   = auto()
 
 
 class VISION_PROJECTOR_TYPE(IntEnum):
@@ -1530,6 +1531,7 @@ MODEL_ARCH_NAMES: dict[MODEL_ARCH, str] = {
     MODEL_ARCH.JINA_BERT_V3:     "jina-bert-v3",
     MODEL_ARCH.EUROBERT:         "eurobert",
     MODEL_ARCH.BLOOM:            "bloom",
+    MODEL_ARCH.NEMOTRON_PARSE:   "nemotron-parse",
     MODEL_ARCH.STABLELM:         "stablelm",
     MODEL_ARCH.QWEN:             "qwen",
     MODEL_ARCH.QWEN2:            "qwen2",
@@ -3082,6 +3084,20 @@ MODEL_TENSORS: dict[MODEL_ARCH, list[MODEL_TENSOR]] = {
         MODEL_TENSOR.OUTPUT,
         MODEL_TENSOR.ATTN_NORM,
         MODEL_TENSOR.ATTN_QKV,
+        MODEL_TENSOR.ATTN_OUT,
+        MODEL_TENSOR.FFN_NORM,
+        MODEL_TENSOR.FFN_DOWN,
+        MODEL_TENSOR.FFN_UP,
+    ],
+    MODEL_ARCH.NEMOTRON_PARSE: [
+        MODEL_TENSOR.TOKEN_EMBD,
+        MODEL_TENSOR.TOKEN_EMBD_NORM,
+        MODEL_TENSOR.OUTPUT_NORM,
+        MODEL_TENSOR.OUTPUT,
+        MODEL_TENSOR.ATTN_NORM,
+        MODEL_TENSOR.ATTN_Q,
+        MODEL_TENSOR.ATTN_K,
+        MODEL_TENSOR.ATTN_V,
         MODEL_TENSOR.ATTN_OUT,
         MODEL_TENSOR.FFN_NORM,
         MODEL_TENSOR.FFN_DOWN,
@@ -7064,6 +7080,7 @@ class VisionProjectorType:
     YOUTUVL = "youtuvl"
     NEMOTRON_V2_VL = "nemotron_v2_vl"
     NEMOTRON_OMNI = "nemotron_omni"
+    NEMOTRON_PARSE = "nemotron_parse"
     QWEN3TTS_SPKENC = "qwen3tts_spkenc" # audio: ECAPA-TDNN speaker encoder
     QWEN3TTS_GEN = "qwen3tts_gen" # audio generation: code_predictor
     POCKETTTS_SPKENC = "pockettts_spkenc" # audio: mimi encoder as voice-prompt encoder

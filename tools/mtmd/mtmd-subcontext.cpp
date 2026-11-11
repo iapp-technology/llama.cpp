@@ -1640,6 +1640,17 @@ bool mtmd_subcontext::encode(mtmd_subctx_encode_params * params) {
                 }
                 set_input_f32("inp_temb", temb);
             } break;
+        case PROJECTOR_TYPE_NEMOTRON_PARSE:
+            {
+                const auto & img = imgs.entries[0];
+                const int n_src = (int) std::lround(std::sqrt((double) model.position_embeddings->ne[1]));
+                // content size before the white padding; the warmup image has none
+                const int content_w = img.anyres.orig_nx > 0 ? img.anyres.orig_nx : img.nx();
+                const int content_h = img.anyres.orig_ny > 0 ? img.anyres.orig_ny : img.ny();
+                const bool pool = std::min((content_w + patch_size - 1) / patch_size, (content_h + patch_size - 1) / patch_size) == 1;
+                set_input_f32("pos_ax", mtmd_graph_nemotron_parse::pos_weights(pos_w, content_w, patch_size, n_src, pool));
+                set_input_f32("pos_ay", mtmd_graph_nemotron_parse::pos_weights(pos_h, content_h, patch_size, n_src, pool));
+            } break;
         case PROJECTOR_TYPE_GEMMA3:
         case PROJECTOR_TYPE_GEMMA3NV:
         case PROJECTOR_TYPE_IDEFICS3:

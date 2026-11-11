@@ -86,6 +86,8 @@ static llama_model * llama_model_mapping(llm_arch arch, const llama_model_params
             return new llama_model_eurobert(params);
         case LLM_ARCH_BLOOM:
             return new llama_model_bloom(params);
+        case LLM_ARCH_NEMOTRON_PARSE:
+            return new llama_model_nemotron_parse(params);
         case LLM_ARCH_MPT:
             return new llama_model_mpt(params);
         case LLM_ARCH_STABLELM:
@@ -3669,6 +3671,7 @@ llama_rope_type llama_model_rope_type(const llama_model * model) {
         case LLM_ARCH_MPT:
         case LLM_ARCH_REFACT:
         case LLM_ARCH_BLOOM:
+        case LLM_ARCH_NEMOTRON_PARSE:
         case LLM_ARCH_MAMBA:
         case LLM_ARCH_MAMBA2:
         case LLM_ARCH_JAMBA:
