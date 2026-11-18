@@ -94,6 +94,16 @@ class NemotronParseModel(TextModel):
         special_vocab.chat_template = NEMOTRON_PARSE_CHAT_TEMPLATE
         special_vocab.add_to_gguf(self.gguf_writer)
 
+    def set_type(self):
+        # sampling defaults of NVIDIA's DocumentParser (its vLLM request), not generation_config.json's repetition
+        # penalty of 1.1 for HF generate(): llama.cpp applies that to the last 64 tokens, which turns a page's second
+        # bullet or a repeated class label into another token. The penalty window covers DocumentParser's 8,744-token
+        # limit (a window of -1 disables the penalty here).
+        m = self.metadata
+        m.sampling_temp, m.sampling_top_k, m.sampling_top_p, m.sampling_min_p = 0.2, 50, 1.0, 0.0
+        m.sampling_penalty_repeat, m.sampling_penalty_last_n = 1.05, 8760
+        super().set_type()
+
     def set_gguf_parameters(self):
         super().set_gguf_parameters()
         self.gguf_writer.add_layer_norm_eps(1e-5)
