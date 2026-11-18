@@ -741,6 +741,15 @@ bool mtmd_subcontext::encode(mtmd_subctx_encode_params * params) {
                 }
             }
         }
+        // parity validation: MTMD_DEBUG_INPUT=<path> writes the normalized input as [int32 nx][int32 ny][f32 R, G, B planes]
+        if (const char * dump = std::getenv("MTMD_DEBUG_INPUT")) {
+            if (FILE * f = fopen(dump, "wb")) {
+                const int32_t hdr[2] = { (int32_t) imgs.entries[0].nx(), (int32_t) imgs.entries[0].ny() };
+                fwrite(hdr, sizeof(hdr), 1, f);
+                fwrite(inp_raw.data(), sizeof(float), inp_raw.size(), f);
+                fclose(f);
+            }
+        }
         set_input_f32("inp_raw", inp_raw);
 
     } else if (params->gen_process != MTMD_SUBCTX_GEN_PROCESS_GEN_WAV &&
@@ -2288,6 +2297,19 @@ bool mtmd_subcontext::encode(mtmd_subctx_encode_params * params) {
     if (status != GGML_STATUS_SUCCESS) {
         LOG_ERR("%s: ggml_backend_sched_graph_compute failed with error %d\n", __func__, status);
         return false;
+    }
+
+    // parity validation: with NPARSE_DEBUG_STAGE the graph outputs an intermediate tensor; dump it and stop
+    if (embeddings != nullptr && std::getenv("NPARSE_DEBUG_STAGE") && std::getenv("MTMD_DEBUG_EMBEDDINGS")) {
+        std::vector<float> data(ggml_nelements(embeddings));
+        ggml_backend_tensor_get(embeddings, data.data(), 0, ggml_nbytes(embeddings));
+        if (FILE * f = fopen(std::getenv("MTMD_DEBUG_EMBEDDINGS"), "wb")) {
+            const int32_t hdr[2] = { (int32_t) (ggml_nelements(embeddings) / embeddings->ne[0]), (int32_t) embeddings->ne[0] };
+            fwrite(hdr, sizeof(hdr), 1, f);
+            fwrite(data.data(), sizeof(float), data.size(), f);
+            fclose(f);
+        }
+        exit(0);
     }
 
     if (embeddings != nullptr) {

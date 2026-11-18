@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
+#include <string>
 
 // C-RADIOv4-SO400M + neck of Nemotron 3.5 Parse
 // ref: hf_nemotron_parse_modeling.py (RadioWithNeck) and hf_prefix_geometry.py
@@ -15,7 +17,17 @@ ggml_cgraph * mtmd_graph_nemotron_parse::build() {
     const int n_x    = n_patches_x;
     const int n_y    = n_patches_y;
 
-    ggml_tensor * inp = build_inp();
+    // patch embedding in full precision: ggml_conv_2d (build_inp) rounds the im2col patches to F16, which moves the
+    // patch tokens by about 1% (the CLS tokens, which get no pixels, stay exact) and flips near-tie tokens
+    ggml_tensor * inp_raw = build_inp_raw();
+    ggml_tensor * col = ggml_im2col(ctx0, model.patch_embeddings_0, inp_raw, patch_size, patch_size, 0, 0, 1, 1, true, GGML_TYPE_F32);
+    col = ggml_reshape_2d(ctx0, col, col->ne[0], col->ne[1] * col->ne[2] * col->ne[3]);                    // [k, patches]
+    ggml_tensor * kernel = ggml_reshape_2d(ctx0, model.patch_embeddings_0, col->ne[0], model.patch_embeddings_0->ne[3]); // [k, embd]
+    ggml_tensor * inp = ggml_mul_mat(ctx0, kernel, col);                                                  // [embd, patches]
+    if (model.patch_bias) {
+        inp = ggml_add(ctx0, inp, model.patch_bias);
+    }
+    cb(inp, "patch_embd", -1);
 
     // the learned n_src x n_src position grid, resampled to the page by two small matrices (see pos_weights)
     ggml_tensor * pos_ax = ggml_new_tensor_2d(ctx0, GGML_TYPE_F32, n_src, n_x);
@@ -29,18 +41,44 @@ ggml_cgraph * mtmd_graph_nemotron_parse::build() {
     ggml_tensor * pos = ggml_reshape_3d(ctx0, model.position_embeddings, n_embd, n_src, n_src); // [embd, col, row]
     pos = ggml_cont(ctx0, ggml_permute(ctx0, pos, 1, 0, 2, 3));                               // [col, embd, row]
     pos = ggml_reshape_2d(ctx0, pos, n_src, n_embd * n_src);
-    pos = ggml_mul_mat(ctx0, pos, pos_ax);                                                     // [embd * row, x]
+    // full F32 for the grid operand: Metal's matrix kernels round src0 to half, which moves every patch's position
+    // embedding by ~1%; with the grid as src1 and F32 required, backends that would round it leave these two small
+    // matmuls to the CPU
+    pos = ggml_mul_mat(ctx0, pos_ax, pos);                                                     // [x, embd * row]
+    ggml_prec_set_src(pos, GGML_PREC_F32, 1);
+    pos = ggml_cont(ctx0, ggml_transpose(ctx0, pos));                                         // [embd * row, x]
     pos = ggml_reshape_3d(ctx0, pos, n_embd, n_src, n_x);
     pos = ggml_cont(ctx0, ggml_permute(ctx0, pos, 1, 0, 2, 3));                               // [row, embd, x]
     pos = ggml_reshape_2d(ctx0, pos, n_src, n_embd * n_x);
-    pos = ggml_mul_mat(ctx0, pos, pos_ay);                                                     // [embd * x, y]
+    pos = ggml_mul_mat(ctx0, pos_ay, pos);                                                     // [y, embd * x]
+    ggml_prec_set_src(pos, GGML_PREC_F32, 1);
+    pos = ggml_cont(ctx0, ggml_transpose(ctx0, pos));                                         // [embd * x, y]
     pos = ggml_reshape_2d(ctx0, pos, n_embd, n_x * n_y);
     cb(pos, "pos_embd", -1);
 
+    // parity validation: NPARSE_DEBUG_STAGE=patch|vitin|vitout makes the graph output that tensor (with MTMD_DEBUG_EMBEDDINGS)
+    const char * dbg_stage = std::getenv("NPARSE_DEBUG_STAGE");
+    if (dbg_stage && std::string(dbg_stage) == "pos") {
+        ggml_build_forward_expand(gf, ggml_add(ctx0, pos, ggml_scale(ctx0, inp, 0.0f)));
+        return gf;
+    }
+    if (dbg_stage && std::string(dbg_stage) == "patch") {
+        ggml_build_forward_expand(gf, inp);
+        return gf;
+    }
+
     inp = ggml_add(ctx0, inp, pos);
     inp = ggml_concat(ctx0, model.class_embedding, inp, 1);
+    if (dbg_stage && std::string(dbg_stage) == "vitin") {
+        ggml_build_forward_expand(gf, inp);
+        return gf;
+    }
 
     ggml_tensor * cur = build_vit(inp, n_cls + n_patches, NORM_TYPE_NORMAL, hparams.ffn_op, nullptr, nullptr);
+    if (dbg_stage && std::string(dbg_stage) == "vitout") {
+        ggml_build_forward_expand(gf, cur);
+        return gf;
+    }
 
     // summary: the 2 CLS tokens side by side
     ggml_tensor * summary = ggml_view_2d(ctx0, cur, 2 * n_embd, 1, ggml_row_size(cur->type, 2 * n_embd), 0);

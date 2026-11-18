@@ -8,6 +8,31 @@ if TYPE_CHECKING:
 from .base import MmprojModel, ModelBase, TextModel, gguf, logger
 
 
+# The image goes first, then "\n", then the task tokens, as vLLM builds the prompt (the model's own template just
+# concatenates the parts, and NVIDIA's DocumentParser sends the text part before the image). Works with
+# llama-server's random media markers and with llama-mtmd-cli's "<__media__>"; a "\n" already after the marker is
+# not doubled.
+NEMOTRON_PARSE_CHAT_TEMPLATE = (
+    "{%- for message in messages -%}"
+    "{%- set c = message['content'] -%}"
+    "{%- if '<__media_' in c -%}"
+    "{%- set parts = c.split('<__media_') -%}"
+    "{%- set head = parts[0] -%}"
+    "{%- set after = parts[1:] | join('<__media_') -%}"
+    "{%- if after.startswith('_>') -%}"
+    "{%- set marker = '<__media__>' -%}{%- set tail = after[2:] -%}"
+    "{%- else -%}"
+    "{%- set segs = after.split('__>') -%}"
+    "{%- set marker = '<__media_' + segs[0] + '__>' -%}{%- set tail = segs[1:] | join('__>') -%}"
+    "{%- endif -%}"
+    "{%- set text = head + tail -%}"
+    "{%- if text.startswith('\\n') -%}{%- set text = text[1:] -%}{%- endif -%}"
+    "{{- marker + '\\n' + text -}}"
+    "{%- else -%}{{- c -}}{%- endif -%}"
+    "{%- endfor -%}"
+)
+
+
 # Nemotron 3.5 Parse: C-RADIOv4-SO400M encoder + neck, its output is a causal prefix of a 10-layer mBART-style decoder (no cross-attention)
 @ModelBase.register("RadioMBartPrefixForCausalLM")
 @ModelBase.example("iapp/OpenThai2.0-OCR-Markdown")
@@ -66,6 +91,7 @@ class NemotronParseModel(TextModel):
         special_vocab = gguf.SpecialVocab(self.dir_model, load_merges=True)
         # the task prompt brings its own </s><s>
         special_vocab.add_special_token = {"bos": False, "eos": False}
+        special_vocab.chat_template = NEMOTRON_PARSE_CHAT_TEMPLATE
         special_vocab.add_to_gguf(self.gguf_writer)
 
     def set_gguf_parameters(self):
