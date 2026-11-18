@@ -68,11 +68,12 @@ with DocumentParser(base_url="http://localhost:8000/v1", model="nemotron-parse")
 
 ## Precision and parity
 
-- In exact F32 (`-ngl 0 --no-mmproj-offload -fa off -ctk f32 -ctv f32 --repeat-penalty 1.0`) the encoder output
-  matches the PyTorch reference to about 1e-4 and the decoder's log-probabilities match it.
-- On GPU backends, the matrix kernels and flash attention round operands to half precision, as with F16 weights.
-  Greedy decodes then follow the reference until a near-tie: a bullet glyph, a block class, a coordinate one step
-  apart.
+- Greedy decodes of the F32 GGUF match the PyTorch F32 reference token for token, on CPU in exact F32
+  (`-ngl 0 --no-mmproj-offload -fa off -ctk f32 -ctv f32`) and on Metal with default settings: 5 development pages,
+  600 tokens each (or to the end of the page), including pages that are resized. Compare with `--repeat-penalty 1.0`
+  and no penalty in the reference.
+- On CPU in exact F32 the encoder output matches the reference to about 1e-4. GPU backends compute some steps at half
+  precision (flash attention, Metal's matrix kernels), as F16 weights do.
 - The position-embedding resampling is kept at full precision on every backend (Metal's matrix kernel rounded the
   128 x 128 grid to half, about 1% error on every patch).
 - Parity tools (environment variables; for development only):
